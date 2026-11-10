@@ -14,7 +14,6 @@ const KEY_NULLS = "nu";    // wake-ups that arrived without the message itself
 const KEY_SYNC = "sy";     // times the mailbox handed over messages immediately
 const KEY_TICKS = "te";    // times the 5-minute check ran (also shows the service is still alive)
 const KEY_ERROR = "er";    // 1 if reading the phone mailbox from the background failed
-const KEY_NULLS = "nl";    // wake-ups that arrived without the message itself
 const KEY_LAST = "lt";     // "HH:MM" of the last time the background service ran
 
 // Entry point. Runs in two separate processes:

@@ -20,6 +20,7 @@ class NowPlayingService extends System.ServiceDelegate {
 
     function onPhoneAppMessage(msg as Communications.PhoneAppMessage) as Void {
         bump(KEY_WAKES);
+        stamp();
         if (msg != null && msg.data instanceof Lang.Dictionary) {
             save(msg.data as Lang.Dictionary);
             Background.exit(msg.data as Application.PropertyValueType);
@@ -33,6 +34,7 @@ class NowPlayingService extends System.ServiceDelegate {
 
     function onTemporalEvent() as Void {
         bump(KEY_TICKS);
+        stamp();
         readMailbox(false);
     }
 
@@ -78,6 +80,12 @@ class NowPlayingService extends System.ServiceDelegate {
     private function save(data as Lang.Dictionary) as Void {
         Application.Storage.setValue(KEY_TRACK, data as Application.PropertyValueType);
         bump(KEY_COUNT);
+    }
+
+    // Records "HH:MM" of this run, so the watch face can show the service is still alive.
+    private function stamp() as Void {
+        var now = System.getClockTime();
+        Application.Storage.setValue(KEY_LAST, now.hour.format("%02d") + ":" + now.min.format("%02d"));
     }
 
     private function bump(key as String) as Void {
