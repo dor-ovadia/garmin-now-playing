@@ -1,4 +1,5 @@
 import Toybox.Application;
+import Toybox.Background;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
@@ -14,7 +15,7 @@ class NowPlayingView extends WatchUi.WatchFace {
     private const STATE_PAUSED = 2;
 
     private var mTrack as Dictionary?;
-    private var mCount as Number = 0;
+    private var mDebug as String = "";
 
     function initialize() {
         WatchFace.initialize();
@@ -26,8 +27,10 @@ class NowPlayingView extends WatchUi.WatchFace {
     function reload() as Void {
         var track = Application.Storage.getValue(KEY_TRACK);
         mTrack = (track instanceof Lang.Dictionary) ? track : null;
-        var count = Application.Storage.getValue(KEY_COUNT);
-        mCount = (count instanceof Lang.Number) ? count : 0;
+        // Temporary test line: w = wake-ups, m = messages saved, t = 5-minute checks,
+        // r = wake-up registered (1/0), e = mailbox error (1/0).
+        mDebug = "w" + counter(KEY_WAKES) + " m" + counter(KEY_COUNT) + " t" + counter(KEY_TICKS)
+            + " r" + (Background.getPhoneAppMessageEventRegistered() ? 1 : 0) + " e" + counter(KEY_ERROR);
     }
 
     function onShow() as Void {
@@ -88,9 +91,13 @@ class NowPlayingView extends WatchUi.WatchFace {
             }
         }
 
-        // Temporary test line: number of phone messages received in the background.
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, h * 0.88, Graphics.FONT_XTINY, "msgs " + mCount, center);
+        dc.drawText(w / 2, h * 0.88, Graphics.FONT_XTINY, mDebug, center);
+    }
+
+    private function counter(key as String) as Number {
+        var n = Application.Storage.getValue(key);
+        return (n instanceof Lang.Number) ? n : 0;
     }
 
     // Shortens text with "..." until it fits the round screen at that height.
