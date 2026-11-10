@@ -7,6 +7,9 @@ on:
       - '.github/workflows/garmin.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: garmin-build
   cancel-in-progress: true
@@ -66,3 +69,14 @@ jobs:
         with:
           name: garmin-now-playing
           path: out/NowPlaying.*
+
+      # Publishes the files as plain downloads (no zip) so they can be fetched from a phone browser.
+      - name: Publish downloadable files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete garmin-latest --yes --cleanup-tag || true
+          gh release create garmin-latest out/NowPlaying.iq out/NowPlaying.prg \
+            --title "Garmin watch face (latest build)" \
+            --notes "Built from commit $GITHUB_SHA" \
+            --target "$GITHUB_SHA"
