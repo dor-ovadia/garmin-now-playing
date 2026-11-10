@@ -5,8 +5,8 @@ import Toybox.Lang;
 import Toybox.System;
 
 // Background process. The system starts it in two cases:
-//  - a phone message arrived (onPhoneAppMessage), the fast path
-//  - every 5 minutes (onTemporalEvent), the fallback path that reads the phone mailbox itself
+//  - a phone message arrived (onPhoneAppMessage)
+//  - every 5 minutes (onTemporalEvent), currently only a heartbeat for testing
 (:background)
 class NowPlayingService extends System.ServiceDelegate {
 
@@ -16,17 +16,22 @@ class NowPlayingService extends System.ServiceDelegate {
 
     function onPhoneAppMessage(msg as Communications.PhoneAppMessage) as Void {
         bump(KEY_WAKES);
+        stamp();
         // On some devices the wake-up arrives without the message itself.
         if (msg != null && msg.data instanceof Lang.Dictionary) {
             deliver(msg.data as Lang.Dictionary);
         } else {
+            bump(KEY_NULLS);
             readMailbox();
         }
     }
 
+    // Always ends immediately: a background process that keeps running is killed by the
+    // system after 30 seconds, which may stop later wake-ups.
     function onTemporalEvent() as Void {
         bump(KEY_TICKS);
-        readMailbox();
+        stamp();
+        Background.exit(null);
     }
 
     // Asks for any phone messages waiting for this app; each one arrives in onMail().
@@ -57,6 +62,11 @@ class NowPlayingService extends System.ServiceDelegate {
         Application.Storage.setValue(KEY_TRACK, data as Application.PropertyValueType);
         bump(KEY_COUNT);
         Background.exit(data as Application.PropertyValueType);
+    }
+
+    private function stamp() as Void {
+        var clock = System.getClockTime();
+        Application.Storage.setValue(KEY_LAST, clock.hour.format("%02d") + ":" + clock.min.format("%02d"));
     }
 
     private function bump(key as String) as Void {

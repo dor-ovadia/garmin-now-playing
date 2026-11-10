@@ -1,5 +1,4 @@
 import Toybox.Application;
-import Toybox.Background;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
@@ -27,10 +26,11 @@ class NowPlayingView extends WatchUi.WatchFace {
     function reload() as Void {
         var track = Application.Storage.getValue(KEY_TRACK);
         mTrack = (track instanceof Lang.Dictionary) ? track : null;
-        // Temporary test line: w = wake-ups, m = messages saved, t = 5-minute checks,
-        // r = wake-up registered (1/0), e = mailbox error (1/0).
-        mDebug = "w" + counter(KEY_WAKES) + " m" + counter(KEY_COUNT) + " t" + counter(KEY_TICKS)
-            + " r" + (Background.getPhoneAppMessageEventRegistered() ? 1 : 0) + " e" + counter(KEY_ERROR);
+        // Temporary test line: w = wake-ups, n = wake-ups without data, m = messages saved,
+        // t = 5-minute heartbeats, then the time the background service last ran.
+        var last = Application.Storage.getValue(KEY_LAST);
+        mDebug = "w" + counter(KEY_WAKES) + " n" + counter(KEY_NULLS) + " m" + counter(KEY_COUNT)
+            + " t" + counter(KEY_TICKS) + " " + ((last instanceof Lang.String) ? last : "--");
     }
 
     function onShow() as Void {

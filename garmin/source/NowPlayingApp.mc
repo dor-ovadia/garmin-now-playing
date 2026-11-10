@@ -12,6 +12,8 @@ const KEY_COUNT = "cnt";   // how many phone messages the background service has
 const KEY_WAKES = "wk";    // times the system woke the service for a phone message
 const KEY_TICKS = "te";    // times the 5-minute fallback check ran
 const KEY_ERROR = "er";    // 1 if reading the phone mailbox from the background failed
+const KEY_NULLS = "nl";    // wake-ups that arrived without the message itself
+const KEY_LAST = "lt";     // "HH:MM" of the last time the background service ran
 
 // Entry point. Runs in two separate processes:
 //  - foreground: the watch face itself
@@ -28,8 +30,8 @@ class NowPlayingApp extends Application.AppBase {
     function getInitialView() as [Views] or [Views, InputDelegates] {
         // Ask the system to wake the background service whenever the phone app sends a message.
         Background.registerForPhoneAppMessageEvent();
-        // Fallback: every 5 minutes (the shortest interval the system allows) the service
-        // also checks the phone mailbox, in case the wake-up above is not delivered.
+        // Test heartbeat every 5 minutes (the shortest interval the system allows),
+        // to show whether the background service keeps being scheduled.
         Background.registerForTemporalEvent(new Time.Duration(5 * 60));
         var view = new NowPlayingView();
         mView = view;
