@@ -2,19 +2,12 @@ import Toybox.Application;
 import Toybox.Background;
 import Toybox.Lang;
 import Toybox.System;
-import Toybox.Time;
 import Toybox.WatchUi;
 
-// Storage keys shared by the background service and the watch face.
-const KEY_TRACK = "np";    // last message from the phone: {"t" title, "a" artist, "s" state, "ts" time}
-const KEY_COUNT = "cnt";   // how many phone messages the background service has saved
-// Temporary diagnostic counters, shown on the bottom line of the watch face.
-const KEY_WAKES = "wk";    // times the system woke the service for a phone message
-const KEY_NULLS = "nu";    // wake-ups that arrived without the message itself
-const KEY_SYNC = "sy";     // times the mailbox handed over messages immediately
-const KEY_TICKS = "te";    // times the 5-minute check ran (also shows the service is still alive)
-const KEY_ERROR = "er";    // 1 if reading the phone mailbox from the background failed
-const KEY_LAST = "lt";     // "HH:MM" of the last time the background service ran
+// Storage key shared by the background service and the watch face.
+// Value: {"t" title, "a" artist, "s" state (0 stopped, 1 playing, 2 paused),
+//         "ts" phone time, "rx" watch time when the message was received}
+const KEY_TRACK = "np";
 
 // Entry point. Runs in two separate processes:
 //  - foreground: the watch face itself
@@ -30,10 +23,10 @@ class NowPlayingApp extends Application.AppBase {
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
         // Ask the system to wake the background service whenever the phone app sends a message.
+        // This is event-driven: nothing runs on the watch between messages.
         Background.registerForPhoneAppMessageEvent();
-        // Test heartbeat every 5 minutes (the shortest interval the system allows),
-        // to show whether the background service keeps being scheduled.
-        Background.registerForTemporalEvent(new Time.Duration(5 * 60));
+        // Earlier test versions also ran a check every 5 minutes; make sure it is switched off.
+        Background.deleteTemporalEvent();
         var view = new NowPlayingView();
         mView = view;
         return [ view ];

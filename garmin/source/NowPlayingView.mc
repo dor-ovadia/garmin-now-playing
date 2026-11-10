@@ -13,27 +13,28 @@ class NowPlayingView extends WatchUi.WatchFace {
     private const STATE_PLAYING = 1;
     private const STATE_PAUSED = 2;
 
+    // A song is hidden when its information can no longer be trusted:
+    private const MAX_PLAYING_AGE = 3 * 60 * 60;  // "playing" with no update for 3 hours
+    private const MAX_PAUSED_AGE = 30 * 60;       // paused for more than 30 minutes
+
     private var mTrack as Dictionary?;
-    private var mDebug as String = "";
+    private var mSleeping as Boolean = false;
+    private var mBurnInProtection as Boolean = false;
 
     function initialize() {
         WatchFace.initialize();
+        var settings = System.getDeviceSettings();
+        if (settings has :requiresBurnInProtection) {
+            mBurnInProtection = settings.requiresBurnInProtection;
+        }
         reload();
     }
 
-    // Reads the latest track from Storage. Called on start, on wake, and when new data arrives,
-    // so onUpdate() itself never touches Storage.
+    // Reads the latest track from Storage. Called on start, on wake, and when new data
+    // arrives, so onUpdate() itself never touches Storage.
     function reload() as Void {
         var track = Application.Storage.getValue(KEY_TRACK);
         mTrack = (track instanceof Lang.Dictionary) ? track : null;
-        // Temporary test line: w = wake-ups, n = wake-ups without data, m = messages saved,
-        // y = immediate mailbox hand-overs, t = 5-minute checks, then the time the background
-        // service last ran. "E" is added if reading the mailbox failed.
-        var last = Application.Storage.getValue(KEY_LAST);
-        mDebug = "w" + counter(KEY_WAKES) + " n" + counter(KEY_NULLS) + " m" + counter(KEY_COUNT)
-            + " y" + counter(KEY_SYNC) + " t" + counter(KEY_TICKS)
-            + " " + ((last instanceof Lang.String) ? last : "--")
-            + (counter(KEY_ERROR) > 0 ? " E" : "");
     }
 
     function onShow() as Void {
@@ -41,7 +42,14 @@ class NowPlayingView extends WatchUi.WatchFace {
     }
 
     function onExitSleep() as Void {
+        mSleeping = false;
         reload();
+        WatchUi.requestUpdate();
+    }
+
+    // Always-On Display: the system now redraws once a minute.
+    function onEnterSleep() as Void {
+        mSleeping = true;
         WatchUi.requestUpdate();
     }
 
@@ -49,58 +57,90 @@ class NowPlayingView extends WatchUi.WatchFace {
         var w = dc.getWidth();
         var h = dc.getHeight();
         var center = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var clock = System.getClockTime();
+        var settings = System.getDeviceSettings();
 
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
+        // Always-On Display on AMOLED: dimmer colours keep the lit area well under the
+        // system's 10% limit, and the whole face moves a few pixels every minute so the
+        // same pixels are not lit for long.
+        var aod = mSleeping && mBurnInProtection;
+        var dx = 0;
+        var dy = 0;
+        if (aod) {
+            dx = ((clock.min % 3) - 1) * 6;
+            dy = ((clock.min % 5) - 2) * 5;
+        }
+        var cx = w / 2 + dx;
+
+        var track = visibleTrack(settings);
+        var state = (track != null) ? track.get("s") : null;
+
+        // Without a song the clock sits in the middle; with one, everything moves up a little.
+        var timeY = (track != null) ? 0.34 : 0.42;
+        var dateY = (track != null) ? 0.53 : 0.62;
+
         // Time, honouring the 12/24h setting of the watch.
-        var clock = System.getClockTime();
         var hour = clock.hour;
-        if (!System.getDeviceSettings().is24Hour) {
+        if (!settings.is24Hour) {
             hour = hour % 12;
             if (hour == 0) {
                 hour = 12;
             }
         }
         var timeText = Lang.format("$1$:$2$", [hour.format("%02d"), clock.min.format("%02d")]);
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, h * 0.34, Graphics.FONT_NUMBER_HOT, timeText, center);
+        dc.setColor(aod ? Graphics.COLOR_LT_GRAY : Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h * timeY + dy, Graphics.FONT_NUMBER_HOT, timeText, center);
 
         // Date in the watch language, e.g. "Tue 10 Nov".
         var info = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
         var dateText = Lang.format("$1$ $2$ $3$", [info.day_of_week, info.day, info.month]);
-        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, h * 0.53, Graphics.FONT_TINY, dateText, center);
+        dc.setColor(aod ? Graphics.COLOR_DK_GRAY : Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, h * dateY + dy, Graphics.FONT_TINY, dateText, center);
 
-        // Song and artist, only while the phone reports playing or paused.
-        var track = mTrack;
         if (track != null) {
-            var state = track.get("s");
-            if (state == STATE_PLAYING || state == STATE_PAUSED) {
-                var title = track.get("t");
-                var artist = track.get("a");
-                // Paused is shown by dimming the title.
-                dc.setColor(state == STATE_PLAYING ? Graphics.COLOR_WHITE : Graphics.COLOR_DK_GRAY,
-                    Graphics.COLOR_TRANSPARENT);
-                if (title instanceof Lang.String) {
-                    dc.drawText(w / 2, h * 0.67, Graphics.FONT_SMALL,
-                        fit(dc, title, Graphics.FONT_SMALL, w * 0.86), center);
-                }
-                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-                if (artist instanceof Lang.String) {
-                    dc.drawText(w / 2, h * 0.77, Graphics.FONT_XTINY,
-                        fit(dc, artist, Graphics.FONT_XTINY, w * 0.74), center);
-                }
+            var title = track.get("t");
+            var artist = track.get("a");
+            // Paused is shown by dimming the title.
+            var bright = (state == STATE_PLAYING) && !aod;
+            dc.setColor(bright ? Graphics.COLOR_WHITE : Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+            if (title instanceof Lang.String) {
+                dc.drawText(cx, h * 0.67 + dy, Graphics.FONT_SMALL,
+                    fit(dc, title, Graphics.FONT_SMALL, w * 0.84), center);
+            }
+            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+            if (artist instanceof Lang.String) {
+                dc.drawText(cx, h * 0.78 + dy, Graphics.FONT_XTINY,
+                    fit(dc, artist, Graphics.FONT_XTINY, w * 0.70), center);
             }
         }
-
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(w / 2, h * 0.88, Graphics.FONT_XTINY, mDebug, center);
     }
 
-    private function counter(key as String) as Number {
-        var n = Application.Storage.getValue(key);
-        return (n instanceof Lang.Number) ? n : 0;
+    // Returns the track only if it should be on screen right now.
+    private function visibleTrack(settings as System.DeviceSettings) as Dictionary? {
+        var track = mTrack;
+        if (track == null) {
+            return null;
+        }
+        // Phone out of reach: we can no longer know what is playing.
+        if (!settings.phoneConnected) {
+            return null;
+        }
+        var state = track.get("s");
+        var received = track.get("rx");
+        if (!(received instanceof Lang.Number)) {
+            return null;
+        }
+        var age = Time.now().value() - received;
+        if (state == STATE_PLAYING && age <= MAX_PLAYING_AGE) {
+            return track;
+        }
+        if (state == STATE_PAUSED && age <= MAX_PAUSED_AGE) {
+            return track;
+        }
+        return null;
     }
 
     // Shortens text with "..." until it fits the round screen at that height.

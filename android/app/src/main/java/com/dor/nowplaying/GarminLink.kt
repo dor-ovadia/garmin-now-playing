@@ -20,6 +20,7 @@ object GarminLink {
     private val handler = Handler(Looper.getMainLooper())
     private val watchApp = IQApp(WATCH_APP_ID)
 
+    private var appContext: Context? = null
     private var connectIQ: ConnectIQ? = null
     private var ready = false
 
@@ -28,16 +29,23 @@ object GarminLink {
     /** Last state the watch confirmed, used to avoid duplicate transmissions. */
     private var lastDelivered: TrackState? = null
     private var attempt = 0
+    private var initAttempt = 0
 
+    /** Safe to call repeatedly; only the first call (or one after a failure) connects. */
     fun init(context: Context) {
-        if (connectIQ != null) return
-        val appContext = context.applicationContext
-        val ciq = ConnectIQ.getInstance(appContext, ConnectIQ.IQConnectType.WIRELESS)
+        appContext = context.applicationContext
+        if (connectIQ == null) connect()
+    }
+
+    private fun connect() {
+        val context = appContext ?: return
+        val ciq = ConnectIQ.getInstance(context, ConnectIQ.IQConnectType.WIRELESS)
         connectIQ = ciq
         Status.garmin = "מאתחל…"
-        ciq.initialize(appContext, false, object : ConnectIQ.ConnectIQListener {
+        ciq.initialize(context, false, object : ConnectIQ.ConnectIQListener {
             override fun onSdkReady() {
                 ready = true
+                initAttempt = 0
                 Status.garmin = "מחובר ל-Garmin Connect"
                 registerDevices()
                 flush()
@@ -45,11 +53,19 @@ object GarminLink {
 
             override fun onInitializeError(status: ConnectIQ.IQSdkErrorStatus?) {
                 ready = false
+                connectIQ = null
                 Status.garmin = "שגיאת אתחול: $status"
+                // Typical after a phone restart, before Garmin Connect is up: try again
+                // a few times, then wait for the next song change (see send()).
+                if (initAttempt < MAX_RETRIES) {
+                    initAttempt++
+                    handler.postDelayed({ if (connectIQ == null) connect() }, 10_000L * initAttempt)
+                }
             }
 
             override fun onSdkShutDown() {
                 ready = false
+                connectIQ = null
                 Status.garmin = "החיבור נסגר"
             }
         })
@@ -60,7 +76,13 @@ object GarminLink {
         if (!force && pending == null && state == lastDelivered) return
         pending = state
         attempt = 0
-        flush()
+        if (connectIQ == null) {
+            // The link to Garmin Connect was lost earlier: reconnect, then onSdkReady() sends.
+            initAttempt = 0
+            connect()
+        } else {
+            flush()
+        }
     }
 
     private fun registerDevices() {
