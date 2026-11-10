@@ -10,7 +10,9 @@ const KEY_TRACK = "np";    // last message from the phone: {"t" title, "a" artis
 const KEY_COUNT = "cnt";   // how many phone messages the background service has saved
 // Temporary diagnostic counters, shown on the bottom line of the watch face.
 const KEY_WAKES = "wk";    // times the system woke the service for a phone message
-const KEY_TICKS = "te";    // times the 5-minute fallback check ran
+const KEY_NULLS = "nu";    // wake-ups that arrived without the message itself
+const KEY_SYNC = "sy";     // times the mailbox handed over messages immediately
+const KEY_TICKS = "te";    // times the 5-minute check ran (also shows the service is still alive)
 const KEY_ERROR = "er";    // 1 if reading the phone mailbox from the background failed
 const KEY_NULLS = "nl";    // wake-ups that arrived without the message itself
 const KEY_LAST = "lt";     // "HH:MM" of the last time the background service ran

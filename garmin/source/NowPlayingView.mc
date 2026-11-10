@@ -27,10 +27,9 @@ class NowPlayingView extends WatchUi.WatchFace {
         var track = Application.Storage.getValue(KEY_TRACK);
         mTrack = (track instanceof Lang.Dictionary) ? track : null;
         // Temporary test line: w = wake-ups, n = wake-ups without data, m = messages saved,
-        // t = 5-minute heartbeats, then the time the background service last ran.
-        var last = Application.Storage.getValue(KEY_LAST);
+        // y = immediate mailbox hand-overs, t = 5-minute checks, e = mailbox error (1/0).
         mDebug = "w" + counter(KEY_WAKES) + " n" + counter(KEY_NULLS) + " m" + counter(KEY_COUNT)
-            + " t" + counter(KEY_TICKS) + " " + ((last instanceof Lang.String) ? last : "--");
+            + " y" + counter(KEY_SYNC) + " t" + counter(KEY_TICKS) + " e" + counter(KEY_ERROR);
     }
 
     function onShow() as Void {
