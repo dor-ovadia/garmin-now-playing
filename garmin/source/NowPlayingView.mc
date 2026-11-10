@@ -12,7 +12,7 @@ import Toybox.WatchUi;
 
 // AMOLED watch face: black background, large HH:MM, small date, heart rate on top,
 // a Body Battery gauge on the left edge, a step-goal gauge on the right edge,
-// and the current song at the bottom when the phone reports one.
+// and the current song with small moving music bars at the bottom when the phone reports one.
 class NowPlayingView extends WatchUi.WatchFace {
 
     private const STATE_PLAYING = 1;
@@ -22,11 +22,16 @@ class NowPlayingView extends WatchUi.WatchFace {
     private const MAX_PLAYING_AGE = 3 * 60 * 60;  // "playing" with no update for 3 hours
     private const MAX_PAUSED_AGE = 30 * 60;       // paused for more than 30 minutes
 
-    // Soft accent colours, one per metric.
-    private const COLOR_BATTERY = 0x85B7EB;  // Body Battery: soft blue
-    private const COLOR_STEPS = 0x5DCAA5;    // steps: soft green
-    private const COLOR_HEART = 0xF09595;    // heart rate: soft red
-    private const COLOR_RING = 0x2C2C2A;     // thin ring the gauges sit on
+    // Accent colours, one per metric.
+    private const COLOR_BATTERY = 0x4DA3FF;  // Body Battery: blue
+    private const COLOR_STEPS = 0x2ED69A;    // steps: green (also the music bars)
+    private const COLOR_HEART = 0xFF5C6C;    // heart rate: red
+    private const COLOR_TRACK = 0x2C2C2A;    // unfilled part of each gauge
+
+    private const GAUGE_WIDTH = 11;
+
+    // Heights of the four music bars, one row per second, repeating.
+    private const BAR_HEIGHTS = [[12, 19, 9, 15], [17, 10, 19, 11], [9, 16, 13, 19], [19, 12, 16, 9]];
 
     private var mTrack as Dictionary?;
     private var mSleeping as Boolean = false;
@@ -94,9 +99,9 @@ class NowPlayingView extends WatchUi.WatchFace {
         var state = (track != null) ? track.get("s") : null;
 
         // Without a song the block sits lower, so the face stays visually centred.
-        var timeY = (track != null) ? 0.33 : 0.39;
-        var dateY = (track != null) ? 0.50 : 0.57;
-        var statsY = (track != null) ? 0.60 : 0.68;
+        var timeY = (track != null) ? 0.32 : 0.39;
+        var dateY = (track != null) ? 0.485 : 0.57;
+        var statsY = (track != null) ? 0.57 : 0.68;
 
         if (!aod) {
             drawMetrics(dc, w, h, clock.min, statsY);
@@ -123,22 +128,35 @@ class NowPlayingView extends WatchUi.WatchFace {
         if (track != null) {
             var title = track.get("t");
             var artist = track.get("a");
-            // Paused is shown by dimming the title.
+            // Paused is shown by dimming the title and freezing the music bars.
             var bright = (state == STATE_PLAYING) && !aod;
+            if (!aod) {
+                drawMusicBars(dc, cx, h * 0.67, bright ? clock.sec % 4 : 0, bright);
+            }
             dc.setColor(bright ? Graphics.COLOR_WHITE : Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
             if (title instanceof Lang.String) {
-                dc.drawText(cx, h * 0.71 + dy, Graphics.FONT_SMALL,
+                dc.drawText(cx, h * 0.73 + dy, Graphics.FONT_SMALL,
                     fit(dc, title, Graphics.FONT_SMALL, w * 0.72), center);
             }
-            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(aod ? Graphics.COLOR_DK_GRAY : Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
             if (artist instanceof Lang.String) {
-                dc.drawText(cx, h * 0.80 + dy, Graphics.FONT_XTINY,
+                dc.drawText(cx, h * 0.815 + dy, Graphics.FONT_XTINY,
                     fit(dc, artist, Graphics.FONT_XTINY, w * 0.60), center);
             }
         }
     }
 
-    // Ring, the two edge gauges, heart rate, and the two small numbers.
+    // Four small bars above the song title. They change once a second while playing.
+    private function drawMusicBars(dc as Dc, cx as Number, bottom as Numeric, frame as Number, playing as Boolean) as Void {
+        var heights = BAR_HEIGHTS[frame];
+        dc.setColor(playing ? COLOR_STEPS : Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        for (var i = 0; i < 4; i++) {
+            var barHeight = playing ? heights[i] : 7;
+            dc.fillRectangle(cx - 16 + i * 9, bottom - barHeight, 5, barHeight);
+        }
+    }
+
+    // The two edge gauges, heart rate, and the two small numbers.
     private function drawMetrics(dc as Dc, w as Number, h as Number, minute as Number, statsY as Float) as Void {
         var cx = w / 2;
         var cy = h / 2;
@@ -159,10 +177,9 @@ class NowPlayingView extends WatchUi.WatchFace {
             stepGoal = activity.stepGoal;
         }
 
-        // Thin ring all around; the coloured gauges sit on it.
-        dc.setPenWidth(2);
-        dc.setColor(COLOR_RING, Graphics.COLOR_TRANSPARENT);
-        dc.drawCircle(cx, cy, radius);
+        // Dark tracks show the full range of each gauge.
+        drawGauge(dc, cx, cy, radius, 225, -90.0, COLOR_TRACK);
+        drawGauge(dc, cx, cy, radius, 315, 90.0, COLOR_TRACK);
 
         // Left gauge: Body Battery 0-100, filling upwards from the lower left.
         if (battery != null) {
@@ -200,7 +217,7 @@ class NowPlayingView extends WatchUi.WatchFace {
         }
         var endDeg = startDeg + sweepDeg;
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(7);
+        dc.setPenWidth(GAUGE_WIDTH);
         dc.drawArc(cx, cy, radius,
             sweepDeg > 0 ? Graphics.ARC_COUNTER_CLOCKWISE : Graphics.ARC_CLOCKWISE,
             startDeg, endDeg.toNumber() % 360);
@@ -211,7 +228,7 @@ class NowPlayingView extends WatchUi.WatchFace {
 
     private function capGauge(dc as Dc, cx as Number, cy as Number, radius as Number, deg as Numeric) as Void {
         var rad = Math.toRadians(deg);
-        dc.fillCircle(cx + radius * Math.cos(rad), cy - radius * Math.sin(rad), 3);
+        dc.fillCircle(cx + radius * Math.cos(rad), cy - radius * Math.sin(rad), GAUGE_WIDTH / 2);
     }
 
     private function drawHeart(dc as Dc, x as Numeric, y as Numeric, size as Number) as Void {
