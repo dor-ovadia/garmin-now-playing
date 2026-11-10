@@ -27,6 +27,8 @@ class NowPlayingView extends WatchUi.WatchFace {
     private const COLOR_STEPS = 0x2ED69A;    // steps: green (also the music bars)
     private const COLOR_HEART = 0xFF5C6C;    // heart rate: red
     private const COLOR_TRACK = 0x2C2C2A;    // unfilled part of each gauge
+    private const COLOR_PROGRESS = 0xCFCFCF;       // played part of the song bar: soft white
+    private const COLOR_PROGRESS_REST = 0x3A3A3A;  // rest of the song bar: faint gray
 
     private const GAUGE_WIDTH = 11;
 
@@ -143,6 +145,38 @@ class NowPlayingView extends WatchUi.WatchFace {
                 dc.drawText(cx, h * 0.815 + dy, Graphics.FONT_XTINY,
                     fit(dc, artist, Graphics.FONT_XTINY, w * 0.60), center);
             }
+            if (!aod) {
+                drawProgress(dc, cx, h * 0.885, w * 0.34, track);
+            }
+        }
+    }
+
+    // Thin bar under the artist showing how far into the song we are. The phone sends the
+    // song length and the position once; while playing, the watch moves the bar by its own clock.
+    private function drawProgress(dc as Dc, cx as Number, y as Numeric, width as Numeric, track as Dictionary) as Void {
+        var duration = track.get("d");
+        var position = track.get("p");
+        var received = track.get("rx");
+        if (!(duration instanceof Lang.Number) || !(position instanceof Lang.Number)
+                || !(received instanceof Lang.Number) || duration <= 0) {
+            return;   // length unknown: no bar
+        }
+        if (track.get("s") == STATE_PLAYING) {
+            position += Time.now().value() - received;
+        }
+        var done = position.toFloat() / duration;
+        if (done < 0) {
+            done = 0.0;
+        } else if (done > 1) {
+            done = 1.0;
+        }
+        var x = cx - width / 2;
+        dc.setColor(COLOR_PROGRESS_REST, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(x, y, width, 4, 2);
+        if (done > 0) {
+            var played = width * done;
+            dc.setColor(COLOR_PROGRESS, Graphics.COLOR_TRANSPARENT);
+            dc.fillRoundedRectangle(x, y, played < 4 ? 4 : played, 4, 2);
         }
     }
 

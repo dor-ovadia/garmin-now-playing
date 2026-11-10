@@ -73,7 +73,7 @@ object GarminLink {
 
     /** Queues [state] for the watch. Identical states are skipped unless [force] is set. */
     fun send(state: TrackState, force: Boolean = false) {
-        if (!force && pending == null && state == lastDelivered) return
+        if (!force && pending == null && state.isSameAs(lastDelivered, System.currentTimeMillis())) return
         pending = state
         attempt = 0
         if (connectIQ == null) {

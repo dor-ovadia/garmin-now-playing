@@ -51,7 +51,11 @@ class MainActivity : Activity() {
         column.addView(Button(this).apply {
             text = "שלח הודעת בדיקה לשעון"
             setOnClickListener {
-                GarminLink.send(TrackState("שיר בדיקה Test", "Now Playing", PlayState.PLAYING), force = true)
+                // A 3-minute sample song, one minute in, so the progress bar can be checked too.
+                GarminLink.send(
+                    TrackState("שיר בדיקה Test", "Now Playing", PlayState.PLAYING, 180, 60, System.currentTimeMillis()),
+                    force = true,
+                )
             }
         })
 

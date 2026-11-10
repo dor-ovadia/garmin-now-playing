@@ -7,6 +7,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 
@@ -41,11 +42,22 @@ class MediaListenerService : NotificationListenerService() {
             TrackState.NONE
         } else {
             val metadata = c.metadata
+            val playback = c.playbackState
+            // The player reports a position together with the moment it was measured;
+            // bring it forward to "now" so the watch gets an up-to-date value.
+            val positionNow = playback?.let {
+                val sinceUpdate = SystemClock.elapsedRealtime() - it.lastPositionUpdateTime
+                val moving = it.state == PlaybackState.STATE_PLAYING && it.lastPositionUpdateTime > 0
+                it.position + if (moving) (sinceUpdate * it.playbackSpeed).toLong() else 0L
+            }
             TrackState.from(
                 metadata?.getString(MediaMetadata.METADATA_KEY_TITLE),
                 metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)
                     ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
-                c.playbackState?.state,
+                playback?.state,
+                metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION),
+                positionNow,
+                System.currentTimeMillis(),
             )
         }
         Status.track = state
