@@ -44,6 +44,11 @@ class MainActivity : Activity() {
         column.addView(statusView)
 
         column.addView(Button(this).apply {
+            text = "עיצוב פני השעון"
+            setOnClickListener { startActivity(Intent(this@MainActivity, DesignActivity::class.java)) }
+        })
+
+        column.addView(Button(this).apply {
             text = "פתח הגדרות גישה להתראות"
             setOnClickListener { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         })

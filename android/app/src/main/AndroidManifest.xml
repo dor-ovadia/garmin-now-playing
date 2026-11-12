@@ -22,6 +22,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".DesignActivity"
+            android:exported="false"
+            android:label="עיצוב פני השעון" />
+
         <!-- Started and kept alive by Android once the user grants notification access. -->
         <service
             android:name=".MediaListenerService"

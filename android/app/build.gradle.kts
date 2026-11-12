@@ -11,8 +11,8 @@ android {
         applicationId = "com.dor.nowplaying"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1"
+        versionCode = 4
+        versionName = "1.2"
     }
 
     // A fixed debug key kept in the repo, so every cloud build can be installed

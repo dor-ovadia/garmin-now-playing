@@ -8,6 +8,9 @@ import Toybox.WatchUi;
 // Value: {"t" title, "a" artist, "s" state (0 stopped, 1 playing, 2 paused),
 //         "ts" phone time, "rx" watch time when the message was received}
 const KEY_TRACK = "np";
+// Watch face design chosen in the phone app: short keys to small numbers
+// (colours as 0xRRGGBB, switches as 0/1, choices as an index). See NowPlayingView.
+const KEY_CONFIG = "cfg";
 
 // Entry point. Runs in two separate processes:
 //  - foreground: the watch face itself

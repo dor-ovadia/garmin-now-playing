@@ -29,6 +29,9 @@ object GarminLink {
     /** Last state the watch confirmed, used to avoid duplicate transmissions. */
     private var lastDelivered: TrackState? = null
     private var attempt = 0
+    /** Newest watch face design that still has to reach the watch. */
+    private var pendingConfig: Map<String, Any>? = null
+    private var configAttempt = 0
     private var initAttempt = 0
 
     /** Safe to call repeatedly; only the first call (or one after a failure) connects. */
@@ -100,7 +103,59 @@ object GarminLink {
         }
     }
 
+    /** Queues the watch face design. Only the newest design is kept if several are waiting. */
+    fun sendConfig(config: Map<String, Any>) {
+        pendingConfig = config
+        configAttempt = 0
+        if (connectIQ == null) {
+            initAttempt = 0
+            connect()
+        } else {
+            flushConfig()
+        }
+    }
+
     private fun flush() {
+        flushConfig()
+        flushTrack()
+    }
+
+    private fun flushConfig() {
+        val ciq = connectIQ
+        val config = pendingConfig
+        if (!ready || ciq == null || config == null) return
+        val device = try {
+            ciq.connectedDevices.orEmpty().firstOrNull()
+        } catch (e: Exception) {
+            null
+        }
+        if (device == null) {
+            Status.designResult = "אין שעון מחובר כרגע; העיצוב יישלח כשיתחבר"
+            return
+        }
+        try {
+            ciq.sendMessage(device, watchApp, config) { _, _, status ->
+                if (status == ConnectIQ.IQMessageStatus.SUCCESS) {
+                    if (pendingConfig === config) pendingConfig = null
+                    Status.designResult = "העיצוב נשלח לשעון"
+                } else {
+                    Status.designResult = "שליחת העיצוב נכשלה: $status"
+                    retryConfigLater()
+                }
+            }
+        } catch (e: Exception) {
+            Status.designResult = "שגיאה בשליחת העיצוב: ${e.message}"
+            retryConfigLater()
+        }
+    }
+
+    private fun retryConfigLater() {
+        if (configAttempt >= MAX_RETRIES) return
+        configAttempt++
+        handler.postDelayed({ flushConfig() }, 2000L * configAttempt)
+    }
+
+    private fun flushTrack() {
         val ciq = connectIQ
         val state = pending
         if (!ready || ciq == null || state == null) return

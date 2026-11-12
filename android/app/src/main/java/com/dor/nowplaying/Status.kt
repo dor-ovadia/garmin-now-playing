@@ -8,4 +8,5 @@ object Status {
     @Volatile var lastSendResult = "—"
     @Volatile var lastSuccessMillis = 0L
     @Volatile var sentCount = 0
+    @Volatile var designResult = ""
 }

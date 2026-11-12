@@ -37,6 +37,12 @@ class NowPlayingService extends System.ServiceDelegate {
     // (Storage survives even if the hand-over to the watch face is missed), then hands it
     // to the watch face and ends the background process.
     private function deliver(data as Lang.Dictionary) as Void {
+        if (data.hasKey("c")) {
+            // A design message from the phone app's design screen, not a song.
+            Application.Storage.setValue(KEY_CONFIG, data as Application.PropertyValueType);
+            Background.exit(data as Application.PropertyValueType);
+            return;
+        }
         data.put("rx", Time.now().value());
         Application.Storage.setValue(KEY_TRACK, data as Application.PropertyValueType);
         Background.exit(data as Application.PropertyValueType);
