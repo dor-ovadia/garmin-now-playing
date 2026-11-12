@@ -32,7 +32,7 @@ class NowPlayingApp extends Application.AppBase {
         Background.deleteTemporalEvent();
         var view = new NowPlayingView();
         mView = view;
-        return [ view ];
+        return [ view, new NowPlayingDelegate() ];
     }
 
     function getServiceDelegate() as [System.ServiceDelegate] {

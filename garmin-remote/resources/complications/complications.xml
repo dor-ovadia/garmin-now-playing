@@ -1,0 +1,4 @@
+<complications>
+    <!-- Published only so the Now Playing watch face can open this app with a press. -->
+    <complication id="0" access="public" longLabel="@Strings.ComplicationLabel" shortLabel="@Strings.ComplicationShort" icon="@Drawables.ComplicationIcon"/>
+</complications>

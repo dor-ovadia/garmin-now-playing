@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'garmin/**'
+      - 'garmin-remote/**'
       - '.github/workflows/garmin.yml'
   workflow_dispatch:
 
@@ -60,6 +61,8 @@ jobs:
           # .prg = direct install file for the Venu 3, .iq = package for the Connect IQ store
           "$CIQ_HOME/bin/monkeyc" -d venu3 -f garmin/monkey.jungle -o out/NowPlaying.prg -y "$RUNNER_TEMP/developer_key.der" -w
           "$CIQ_HOME/bin/monkeyc" -e -f garmin/monkey.jungle -o out/NowPlaying.iq -y "$RUNNER_TEMP/developer_key.der" -w
+          # The remote control app (a separate watch app that the watch face can open)
+          "$CIQ_HOME/bin/monkeyc" -e -f garmin-remote/monkey.jungle -o out/NowPlayingRemote.iq -y "$RUNNER_TEMP/developer_key.der" -w
 
       - name: Remove the signing key
         if: always()
@@ -76,7 +79,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete garmin-latest --yes --cleanup-tag || true
-          gh release create garmin-latest out/NowPlaying.iq out/NowPlaying.prg \
+          gh release create garmin-latest out/NowPlaying.iq out/NowPlaying.prg out/NowPlayingRemote.iq \
             --title "Garmin watch face (latest build)" \
             --notes "Built from commit $GITHUB_SHA" \
             --target "$GITHUB_SHA"

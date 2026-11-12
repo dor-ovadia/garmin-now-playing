@@ -1,0 +1,6 @@
+<strings>
+    <string id="AppName">Now Playing Remote</string>
+    <!-- The watch face finds this app by this exact label; keep it in sync with NowPlayingDelegate.mc. -->
+    <string id="ComplicationLabel">Now Playing Remote</string>
+    <string id="ComplicationShort">Remote</string>
+</strings>

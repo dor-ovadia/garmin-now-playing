@@ -15,10 +15,16 @@ object GarminLink {
 
     /** Must match the application id in garmin/manifest.xml. */
     private const val WATCH_APP_ID = "0fee28f3f11c4e23bf96253f2c3d7361"
+    /** Must match the application id in garmin-remote/manifest.xml. */
+    private const val REMOTE_APP_ID = "4c20e4ef989e48b1b09c9a8486137440"
     private const val MAX_RETRIES = 3
+    /** After its last message, the remote keeps receiving song updates for this long. */
+    private const val REMOTE_ACTIVE_MS = 3 * 60 * 1000L
 
     private val handler = Handler(Looper.getMainLooper())
     private val watchApp = IQApp(WATCH_APP_ID)
+    private val remoteApp = IQApp(REMOTE_APP_ID)
+    private var remoteActiveUntil = 0L
 
     private var appContext: Context? = null
     private var connectIQ: ConnectIQ? = null
@@ -79,6 +85,10 @@ object GarminLink {
         if (!force && pending == null && state.isSameAs(lastDelivered, System.currentTimeMillis())) return
         pending = state
         attempt = 0
+        // While the remote is in use it shows the song too.
+        if (System.currentTimeMillis() < remoteActiveUntil) {
+            sendToRemote(state.toMessage(System.currentTimeMillis() / 1000))
+        }
         if (connectIQ == null) {
             // The link to Garmin Connect was lost earlier: reconnect, then onSdkReady() sends.
             initAttempt = 0
@@ -92,6 +102,10 @@ object GarminLink {
         val ciq = connectIQ ?: return
         try {
             for (device in ciq.knownDevices.orEmpty()) {
+                // Commands from the remote control app on the watch.
+                ciq.registerForAppEvents(device, remoteApp) { _, _, message, _ ->
+                    onRemoteCommand(message?.firstOrNull() as? String ?: return@registerForAppEvents)
+                }
                 ciq.registerForDeviceEvents(device) { d, status ->
                     Status.garmin = "${d?.friendlyName ?: "שעון"}: $status"
                     // The watch came back in range: deliver whatever is waiting.
@@ -100,6 +114,30 @@ object GarminLink {
             }
         } catch (e: Exception) {
             Status.garmin = "שגיאה באיתור השעון: ${e.message}"
+        }
+    }
+
+    private fun onRemoteCommand(command: String) {
+        val context = appContext ?: return
+        remoteActiveUntil = System.currentTimeMillis() + REMOTE_ACTIVE_MS
+        if (command == "hello") {
+            // The remote was just opened: give it the colours and the current song.
+            sendToRemote(DesignConfig.load(context).toMessage())
+            sendToRemote(Status.track.toMessage(System.currentTimeMillis() / 1000))
+        } else {
+            MediaControl.handle(context, command)
+        }
+    }
+
+    /** Best effort, no retry: the remote is on screen and the next change sends again. */
+    private fun sendToRemote(payload: Map<String, Any>) {
+        val ciq = connectIQ ?: return
+        if (!ready) return
+        try {
+            val device = ciq.connectedDevices.orEmpty().firstOrNull() ?: return
+            ciq.sendMessage(device, remoteApp, payload) { _, _, _ -> }
+        } catch (e: Exception) {
+            // Ignored on purpose; see above.
         }
     }
 

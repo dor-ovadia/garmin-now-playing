@@ -100,6 +100,7 @@ class MediaListenerService : NotificationListenerService() {
         if (youtube?.sessionToken != controller?.sessionToken) {
             detach()
             controller = youtube
+            MediaControl.controller = youtube
             youtube?.registerCallback(controllerCallback, handler)
         }
         schedulePublish()
@@ -108,6 +109,7 @@ class MediaListenerService : NotificationListenerService() {
     private fun detach() {
         controller?.unregisterCallback(controllerCallback)
         controller = null
+        MediaControl.controller = null
     }
 
     private fun schedulePublish() {
