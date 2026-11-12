@@ -249,12 +249,14 @@ class NowPlayingView extends WatchUi.WatchFace {
         if (left != null) {
             drawGauge(dc, cx, cy, radius, 225, -90.0, COLOR_TRACK);
             drawGauge(dc, cx, cy, radius, 225, -90.0 * (left[1] as Float), cfg("lc", 0x4DA3FF));
+            dc.setColor(cfg("lc", 0x4DA3FF), Graphics.COLOR_TRANSPARENT);
             dc.drawText(w * 0.30, h * statsY, Graphics.FONT_XTINY, left[0] as String, center);
         }
         var right = readSource(cfg("ra", SOURCE_STEPS), activity);
         if (right != null) {
             drawGauge(dc, cx, cy, radius, 315, 90.0, COLOR_TRACK);
             drawGauge(dc, cx, cy, radius, 315, 90.0 * (right[1] as Float), cfg("rc", 0x2ED69A));
+            dc.setColor(cfg("rc", 0x2ED69A), Graphics.COLOR_TRANSPARENT);
             dc.drawText(w * 0.70, h * statsY, Graphics.FONT_XTINY, right[0] as String, center);
         }
 
