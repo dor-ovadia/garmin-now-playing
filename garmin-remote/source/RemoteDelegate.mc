@@ -17,9 +17,19 @@ class RemoteDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    // The physical action button also plays and pauses.
+    // The physical action button also plays and pauses. This is handled as a key press and
+    // not as the "select" behaviour, because on a touch screen every tap also counts as
+    // "select", which made each tapped button play/pause as well.
+    function onKey(evt as WatchUi.KeyEvent) as Boolean {
+        if (evt.getKey() == WatchUi.KEY_ENTER) {
+            mView.press("toggle");
+            return true;
+        }
+        return false;
+    }
+
+    // Swallow the "select" that accompanies a tap, so it does nothing.
     function onSelect() as Boolean {
-        mView.press("toggle");
         return true;
     }
 }
