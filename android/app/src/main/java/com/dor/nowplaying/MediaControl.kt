@@ -2,39 +2,27 @@ package com.dor.nowplaying
 
 import android.content.Context
 import android.media.AudioManager
-import android.media.session.MediaController
-import android.media.session.PlaybackState
 import android.os.SystemClock
 import android.view.KeyEvent
 
 /** Carries out the commands that arrive from the remote control app on the watch. */
 object MediaControl {
 
-    /** The YouTube Music session, kept up to date by [MediaListenerService]; null when it is closed. */
-    @Volatile var controller: MediaController? = null
-
     val COMMANDS = setOf("prev", "next", "toggle", "vol+", "vol-")
 
+    /**
+     * Playback commands are sent as ordinary media key presses through Android, the same
+     * route a headset button takes, rather than by calling the player's session directly.
+     * Android treats a media key as a user action and lets the player take the speaker
+     * again; a direct call from another app in the background can leave it playing silently.
+     */
     fun handle(context: Context, command: String) {
         if (command !in COMMANDS) return
         val audio = context.getSystemService(AudioManager::class.java)
         when (command) {
             "vol+" -> audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
             "vol-" -> audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
-            else -> {
-                val controls = controller?.transportControls
-                if (controls == null) {
-                    // YouTube Music has no open session: send an ordinary media key instead,
-                    // which Android gives to the last player that was used.
-                    sendMediaKey(audio, keyFor(command))
-                } else when (command) {
-                    "prev" -> controls.skipToPrevious()
-                    "next" -> controls.skipToNext()
-                    else ->
-                        if (controller?.playbackState?.state == PlaybackState.STATE_PLAYING) controls.pause()
-                        else controls.play()
-                }
-            }
+            else -> sendMediaKey(audio, keyFor(command))
         }
     }
 
